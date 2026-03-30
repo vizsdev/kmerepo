@@ -1,0 +1,86 @@
+{% extends "base/base.html" %}
+{% block title %}Import Logs{% endblock %}
+{% block page_title %}Import Logs{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'import_records' %}" class="btn btn-primary">↑ New Import</a>
+{% endblock %}
+
+{% block content %}
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Status</th>
+        <th>Total</th>
+        <th>Success</th>
+        <th>Errors</th>
+        <th>Imported By</th>
+        <th>Date</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="data-row">
+        <td class="mono">{{ log.file_name }}</td>
+        <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
+        <td class="mono">{{ log.total_rows }}</td>
+        <td class="mono" style="color:var(--success)">{{ log.success_rows }}</td>
+        <td class="mono" style="color:{% if log.error_rows > 0 %}var(--danger){% else %}var(--text-3){% endif %}">
+          {{ log.error_rows }}
+        </td>
+        <td>{{ log.imported_by.username|default:"—" }}</td>
+        <td class="mono">{{ log.imported_at|date:"Y-m-d H:i" }}</td>
+        <td>
+          {% if log.errors %}
+          <button class="btn btn-ghost tiny" onclick="toggleErrors('err-{{ log.pk }}')">Show errors</button>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% if log.errors %}
+      <tr id="err-{{ log.pk }}" style="display:none;">
+        <td colspan="8" style="padding:0 12px 12px;">
+          <ul class="error-list">
+            {% for err in log.errors %}
+            <li>{{ err }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+      </tr>
+      {% endif %}
+      {% empty %}
+      <tr>
+        <td colspan="8" class="empty-state">
+          <div class="empty-inner">
+            <div class="empty-icon">⬡</div>
+            <div class="empty-title">No imports yet</div>
+            <div class="empty-sub"><a href="{% url 'import_records' %}">Import your first file</a></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="page-btn">← Prev</a>{% endif %}
+  <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="page-btn">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleErrors(id) {
+  const row = document.getElementById(id);
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+</script>
+{% endblock %}

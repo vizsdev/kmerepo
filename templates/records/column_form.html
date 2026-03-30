@@ -1,0 +1,90 @@
+{% extends "base/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-card">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="form-section">
+        <div class="form-grid two-col">
+          <div class="form-group">
+            <label class="form-label required">Display Label</label>
+            {{ form.label }}
+            {% if form.label.errors %}<div class="field-error">{{ form.label.errors.0 }}</div>{% endif %}
+            <div class="field-hint">Shown in table headers and forms</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Field Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="field-error">{{ form.name.errors.0 }}</div>{% endif %}
+            <div class="field-hint">Internal identifier (lowercase, no spaces)</div>
+          </div>
+        </div>
+
+        <div class="form-grid two-col">
+          <div class="form-group">
+            <label class="form-label required">Field Type</label>
+            {{ form.field_type }}
+            {% if form.field_type.errors %}<div class="field-error">{{ form.field_type.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group" id="optionsGroup" style="display:none;">
+            <label class="form-label">Dropdown Options</label>
+            {{ form.options }}
+            <div class="field-hint">Comma-separated: Option1, Option2, Option3</div>
+          </div>
+        </div>
+
+        <div class="form-grid two-col">
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              {{ form.is_required }}
+              <span>Required field</span>
+            </label>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              {{ form.is_visible }}
+              <span>Visible in table</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'column_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{{ action }} Column</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const typeSelect = document.getElementById('id_field_type');
+const optionsGroup = document.getElementById('optionsGroup');
+
+function checkType() {
+  optionsGroup.style.display = typeSelect.value === 'dropdown' ? 'block' : 'none';
+}
+
+typeSelect.addEventListener('change', checkType);
+checkType();
+
+// Auto-generate field name from label
+const labelInput = document.querySelector('[name=label]');
+const nameInput = document.querySelector('[name=name]');
+let autoName = !nameInput.value;
+
+labelInput.addEventListener('input', function() {
+  if (autoName) {
+    nameInput.value = this.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  }
+});
+nameInput.addEventListener('input', function() {
+  autoName = !this.value;
+});
+</script>
+{% endblock %}

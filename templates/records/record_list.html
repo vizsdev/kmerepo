@@ -1,0 +1,173 @@
+{% extends "base/base.html" %}
+{% block title %}Production Records{% endblock %}
+{% block page_title %}Production Records{% endblock %}
+
+{% block topbar_actions %}
+<div class="action-group">
+  <a href="{% url 'record_create' %}" class="btn btn-primary">+ New Record</a>
+  <div class="dropdown">
+    <button class="btn btn-outline dropdown-toggle" id="exportBtn">↓ Export</button>
+    <div class="dropdown-menu" id="exportMenu">
+      <a href="{% url 'export_records' %}?format=csv&{{ request.GET.urlencode }}" class="dropdown-item">CSV</a>
+      <a href="{% url 'export_records' %}?format=xlsx&{{ request.GET.urlencode }}" class="dropdown-item">Excel (.xlsx)</a>
+      <a href="{% url 'export_records' %}?format=json&{{ request.GET.urlencode }}" class="dropdown-item">JSON</a>
+    </div>
+  </div>
+  <a href="{% url 'import_records' %}" class="btn btn-outline">↑ Import</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat-chip">
+    <span class="stat-label">Total Records</span>
+    <span class="stat-value mono">{{ total_count }}</span>
+  </div>
+  <div class="stat-chip">
+    <span class="stat-label">Showing</span>
+    <span class="stat-value mono">{{ page_obj.paginator.count }}</span>
+  </div>
+  <div class="stat-chip">
+    <span class="stat-label">Page</span>
+    <span class="stat-value mono">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar" id="filterForm">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" name="search" value="{{ search }}" class="search-input"
+           placeholder="Search serial no., MAC address..."
+           hx-get="{% url 'record_table_partial' %}"
+           hx-trigger="keyup changed delay:400ms"
+           hx-target="#record-table-container"
+           hx-include="#filterForm">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}" class="form-input small">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}" class="form-input small">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">Sort</label>
+    <select name="sort" class="form-select small"
+            hx-get="{% url 'record_table_partial' %}"
+            hx-trigger="change"
+            hx-target="#record-table-container"
+            hx-include="#filterForm">
+      <option value="-produce_dt" {% if sort == '-produce_dt' %}selected{% endif %}>Date ↓</option>
+      <option value="produce_dt" {% if sort == 'produce_dt' %}selected{% endif %}>Date ↑</option>
+      <option value="serial_number" {% if sort == 'serial_number' %}selected{% endif %}>Serial ↑</option>
+      <option value="-serial_number" {% if sort == '-serial_number' %}selected{% endif %}>Serial ↓</option>
+      <option value="-created_at" {% if sort == '-created_at' %}selected{% endif %}>Newest First</option>
+      <option value="created_at" {% if sort == 'created_at' %}selected{% endif %}>Oldest First</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  {% if search or date_from or date_to %}
+  <a href="{% url 'record_list' %}" class="btn btn-ghost">✕ Clear</a>
+  {% endif %}
+</form>
+
+<!-- Column visibility toggles -->
+<div class="column-toggles">
+  <span class="toggle-label">Columns:</span>
+  {% for col in all_columns %}
+  <button class="col-toggle {% if col.is_visible %}active{% endif %}"
+          data-col-id="{{ col.id }}"
+          onclick="toggleColumn(this, {{ col.id }})">
+    {{ col.label }}
+  </button>
+  {% endfor %}
+  <a href="{% url 'column_list' %}" class="btn btn-ghost tiny">⊞ Manage</a>
+</div>
+
+<!-- Bulk actions bar -->
+<div class="bulk-bar" id="bulkBar" style="display:none;">
+  <span class="bulk-count" id="bulkCount">0 selected</span>
+  <form method="post" action="{% url 'bulk_delete' %}" id="bulkForm">
+    {% csrf_token %}
+    <div id="bulkIdsContainer"></div>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Delete selected records?')">Delete Selected</button>
+  </form>
+  <button class="btn btn-ghost" onclick="clearSelection()">✕ Clear</button>
+</div>
+
+<!-- Table -->
+<div class="table-wrap" id="record-table-container">
+  {% include "records/partials/table_rows.html" %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleColumn(btn, colId) {
+  fetch(`/columns/toggle/${colId}/`, {method: 'POST', headers: {'X-CSRFToken': getCookie('csrftoken')}})
+    .then(r => r.json()).then(data => {
+      btn.classList.toggle('active', data.visible);
+      document.querySelectorAll(`.col-${colId}`).forEach(el => {
+        el.style.display = data.visible ? '' : 'none';
+      });
+    });
+}
+
+function getCookie(name) {
+  return document.cookie.split('; ').find(r => r.startsWith(name+'='))?.split('=')[1] || '';
+}
+
+// Bulk selection
+const selectedIds = new Set();
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = document.getElementById('bulkCount');
+  const container = document.getElementById('bulkIdsContainer');
+  bar.style.display = selectedIds.size > 0 ? 'flex' : 'none';
+  count.textContent = selectedIds.size + ' selected';
+  container.innerHTML = '';
+  selectedIds.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = id;
+    container.appendChild(inp);
+  });
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+  document.getElementById('selectAll').checked = false;
+  updateBulkBar();
+}
+
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('row-check')) {
+    const id = e.target.dataset.id;
+    if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    updateBulkBar();
+  }
+  if (e.target.id === 'selectAll') {
+    document.querySelectorAll('.row-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      if (e.target.checked) selectedIds.add(cb.dataset.id); else selectedIds.delete(cb.dataset.id);
+    });
+    updateBulkBar();
+  }
+});
+
+// Export dropdown
+document.getElementById('exportBtn').addEventListener('click', function() {
+  document.getElementById('exportMenu').classList.toggle('show');
+});
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+  }
+});
+</script>
+{% endblock %}
