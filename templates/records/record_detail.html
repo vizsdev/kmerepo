@@ -1,0 +1,115 @@
+{% load record_extras %}
+{% extends "base/base.html" %}
+{% block title %}Record {{ object.serial_number }}{% endblock %}
+{% block page_title %}Record Detail{% endblock %}
+
+{% block topbar_actions %}
+<div class="action-group">
+  <a href="{% url 'record_edit' object.pk %}" class="btn btn-primary">✎ Edit</a>
+  <a href="{% url 'record_delete' object.pk %}" class="btn btn-danger">✕ Delete</a>
+  <a href="{% url 'record_list' %}" class="btn btn-ghost">← Back</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="form-page" style="max-width:900px">
+
+  <!-- Core Fields -->
+  <div style="margin-bottom:16px">
+    <div class="form-section-title" style="margin-bottom:12px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);">Core Fields</div>
+    <div class="detail-grid">
+      <div class="detail-field">
+        <div class="detail-field-label">PO Number</div>
+        <div class="detail-field-value">{{ object.po_number|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Pallet Number</div>
+        <div class="detail-field-value">{{ object.pallet_number|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Carton Number</div>
+        <div class="detail-field-value">{{ object.carton_number|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">PCB Label</div>
+        <div class="detail-field-value">{{ object.pcb_label|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Chip ID</div>
+        <div class="detail-field-value">{{ object.chip_id|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Serial Number</div>
+        <div class="detail-field-value">{{ object.serial_number }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Produce Date</div>
+        <div class="detail-field-value">{{ object.produce_dt }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Created By</div>
+        <div class="detail-field-value">{{ object.created_by.username|default:"—" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Created At</div>
+        <div class="detail-field-value">{{ object.created_at|date:"Y-m-d H:i" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Last Updated</div>
+        <div class="detail-field-value">{{ object.updated_at|date:"Y-m-d H:i" }}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Updated By</div>
+        <div class="detail-field-value">{{ object.updated_by.username|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAC Addresses -->
+  <div style="margin-bottom:16px">
+    <div class="form-section-title" style="margin-bottom:12px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);">MAC Addresses</div>
+    <div class="detail-grid">
+      {% for i in "123456" %}
+      {% with mac_val=object|attr:"mac"|add:i %}
+      <div class="detail-field">
+        <div class="detail-field-label">MAC {{ i }}</div>
+        <div class="detail-field-value">
+          {% if i == "1" %}{{ object.mac1|default:"—" }}
+          {% elif i == "2" %}{{ object.mac2|default:"—" }}
+          {% elif i == "3" %}{{ object.mac3|default:"—" }}
+          {% elif i == "4" %}{{ object.mac4|default:"—" }}
+          {% elif i == "5" %}{{ object.mac5|default:"—" }}
+          {% elif i == "6" %}{{ object.mac6|default:"—" }}
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Custom Fields -->
+  {% if columns %}
+  <div>
+    <div class="form-section-title" style="margin-bottom:12px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);">Custom Fields</div>
+    <div class="detail-grid">
+      {% for col in columns %}
+      <div class="detail-field">
+        <div class="detail-field-label">{{ col.label }}</div>
+        <div class="detail-field-value">
+          {% with val=object.extra_data|get_item:col.name %}
+            {% if col.field_type == 'checkbox' %}
+              {% if val %}<span class="badge badge-green">✓ Yes</span>{% else %}<span class="badge badge-gray">✗ No</span>{% endif %}
+            {% else %}
+              {{ val|default:"—" }}
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

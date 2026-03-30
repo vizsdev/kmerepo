@@ -1,0 +1,105 @@
+{% extends "base/base.html" %}
+{% block title %}Manage Columns{% endblock %}
+{% block page_title %}Manage Columns{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'column_create' %}" class="btn btn-primary">+ Add Column</a>
+{% endblock %}
+
+{% block content %}
+<div class="info-banner">
+  <span class="info-icon">ℹ</span>
+  Drag rows to reorder columns. Core columns (Serial No., MACs, Date) cannot be deleted.
+</div>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:40px;">⠿</th>
+        <th>Label</th>
+        <th>Field Name</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Visible</th>
+        <th>Options</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="colSortable">
+      {% for col in columns %}
+      <tr class="data-row {% if col.is_core %}core-row{% endif %}" data-col-id="{{ col.id }}">
+        <td class="drag-handle {% if col.is_core %}no-drag{% endif %}">
+          {% if not col.is_core %}⠿{% else %}⬡{% endif %}
+        </td>
+        <td>
+          <span class="col-label">{{ col.label }}</span>
+          {% if col.is_core %}<span class="badge badge-blue">core</span>{% endif %}
+        </td>
+        <td class="mono">{{ col.name }}</td>
+        <td><span class="type-badge type-{{ col.field_type }}">{{ col.get_field_type_display }}</span></td>
+        <td>
+          {% if col.is_required %}<span class="badge badge-orange">Required</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td>
+          <button class="toggle-vis {% if col.is_visible %}on{% endif %}"
+                  onclick="toggleVis(this, {{ col.id }})"
+                  {% if col.is_core %}disabled{% endif %}>
+            {% if col.is_visible %}●{% else %}○{% endif %}
+          </button>
+        </td>
+        <td class="options-cell">
+          {% if col.field_type == 'dropdown' %}
+          <span class="options-list">{{ col.options|truncatechars:40 }}</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td>
+          <div class="action-btns">
+            {% if not col.is_core %}
+            <a href="{% url 'column_edit' col.id %}" class="btn-icon" title="Edit">✎</a>
+            <a href="{% url 'column_delete' col.id %}" class="btn-icon danger" title="Delete"
+               onclick="return confirm('Delete column \'{{ col.label }}\'? This will remove its data from all records.')">✕</a>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Drag-to-reorder columns
+const sortable = new Sortable(document.getElementById('colSortable'), {
+  handle: '.drag-handle:not(.no-drag)',
+  animation: 150,
+  ghostClass: 'sortable-ghost',
+  onEnd: function() {
+    const rows = document.querySelectorAll('#colSortable [data-col-id]');
+    const order = Array.from(rows).map((row, idx) => ({id: parseInt(row.dataset.colId), order: idx}));
+    fetch('{% url "column_reorder" %}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+      body: JSON.stringify({order})
+    });
+  }
+});
+
+function toggleVis(btn, colId) {
+  fetch(`/columns/toggle/${colId}/`, {method: 'POST', headers: {'X-CSRFToken': getCookie('csrftoken')}})
+    .then(r => r.json()).then(data => {
+      btn.classList.toggle('on', data.visible);
+      btn.textContent = data.visible ? '●' : '○';
+    });
+}
+
+function getCookie(name) {
+  return document.cookie.split('; ').find(r => r.startsWith(name+'='))?.split('=')[1] || '';
+}
+</script>
+{% endblock %}

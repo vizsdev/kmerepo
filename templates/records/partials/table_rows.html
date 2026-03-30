@@ -1,0 +1,103 @@
+{% load record_extras %}
+
+<div class="table-scroll">
+  <table class="data-table" id="mainTable">
+    <thead>
+      <tr>
+        <th class="col-check"><input type="checkbox" id="selectAll" class="form-checkbox"></th>
+        <th class="col-po">PO_Number</th>
+        <th class="col-pallet">palletNumber</th>
+        <th class="col-carton">cartonNumber</th>
+        <th class="col-pcb">pcb_label</th>
+        <th class="col-chip">chip_id</th>
+        <th class="col-serial sortable" data-sort="serial_number">serial_number</th>
+        <th class="col-stb">STB_Mac</th>
+        <th class="col-bt">BT_Mac</th>
+        <th class="col-wifi">Wifi_AP_5G</th>
+        <th class="col-wifi">Wifi_AP_2G</th>
+        <th class="col-wifi">Wifi_Client_5G</th>
+        <th class="col-wifi">Wifi_Client_2G</th>
+        <th class="col-date sortable" data-sort="produce_dt">produce_dt</th>
+        {% for col in columns %}
+        {% if not col.is_core %}
+        <th class="col-{{ col.id }} draggable-col" draggable="true" data-col-id="{{ col.id }}">{{ col.label }}</th>
+        {% endif %}
+        {% endfor %}
+        <th class="col-actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      {% for record in records %}
+      <tr class="data-row" data-id="{{ record.pk }}">
+        <td class="col-check">
+          <input type="checkbox" class="row-check form-checkbox" data-id="{{ record.pk }}">
+        </td>
+        <td class="col-po mono">{{ record.po_number|default:"—" }}</td>
+        <td class="col-pallet mono">{{ record.pallet_number|default:"—" }}</td>
+        <td class="col-carton mono">{{ record.carton_number|default:"—" }}</td>
+        <td class="col-pcb mono">{{ record.pcb_label|default:"—" }}</td>
+        <td class="col-chip mono">{{ record.chip_id|default:"—" }}</td>
+        <td class="col-serial mono">
+          <a href="{% url 'record_detail' record.pk %}" class="record-link">{{ record.serial_number }}</a>
+        </td>
+        <td class="col-stb mono">{{ record.stb_mac|default:"—" }}</td>
+        <td class="col-bt mono">{{ record.bt_mac|default:"—" }}</td>
+        <td class="col-wifi mono">{{ record.wifi_ap_5g|default:"—" }}</td>
+        <td class="col-wifi mono">{{ record.wifi_ap_2g|default:"—" }}</td>
+        <td class="col-wifi mono">{{ record.wifi_client_5g|default:"—" }}</td>
+        <td class="col-wifi mono">{{ record.wifi_client_2g|default:"—" }}</td>
+        <td class="col-date mono">{{ record.produce_dt }}</td>
+        {% for col in columns %}
+        {% if not col.is_core %}
+        <td class="col-{{ col.id }}">
+          {% with col_value=record.extra_data|get_item:col.name %}
+            {% if col.field_type == 'checkbox' %}
+              <span class="badge {% if col_value %}badge-green{% else %}badge-gray{% endif %}">
+                {% if col_value %}✓{% else %}—{% endif %}
+              </span>
+            {% else %}
+              {{ col_value|default:"—" }}
+            {% endif %}
+          {% endwith %}
+        </td>
+        {% endif %}
+        {% endfor %}
+        <td class="col-actions">
+          <div class="action-btns">
+            <a href="{% url 'record_edit' record.pk %}" class="btn-icon" title="Edit">✎</a>
+            <a href="{% url 'record_delete' record.pk %}" class="btn-icon danger" title="Delete"
+               onclick="return confirm('Delete this record?')">✕</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="20" class="empty-state">
+          <div class="empty-inner">
+            <div class="empty-icon">⬡</div>
+            <div class="empty-title">No records found</div>
+            <div class="empty-sub">Try adjusting filters or <a href="{% url 'record_create' %}">add a record</a></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+     class="page-btn">← Prev</a>
+  {% endif %}
+
+  <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+  {% if page_obj.has_next %}
+  <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+     class="page-btn">Next →</a>
+  {% endif %}
+</div>
+{% endif %}

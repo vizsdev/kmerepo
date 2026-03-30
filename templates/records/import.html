@@ -1,0 +1,53 @@
+{% extends "base/base.html" %}
+{% block title %}Import Records{% endblock %}
+{% block page_title %}Import Records{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-card">
+    <div class="info-banner">
+      <span class="info-icon">ℹ</span>
+      File must include headers: <code>PO_Number</code>, <code>palletNumber</code>, <code>cartonNumber</code>, <code>pcb_label</code>, <code>chip_id</code>, <code>serial_number</code>, <code>STB_Mac</code>, <code>BT_Mac</code>, <code>Wifi_AP_5G</code>, <code>Wifi_AP_2G</code>, <code>Wifi_Client_5G</code>, <code>Wifi_Client_2G</code>, <code>produce_dt</code>, plus any custom columns.
+      Existing records with matching serial_number will be updated.
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      <div class="form-section">
+        <div class="form-grid two-col">
+          <div class="form-group">
+            <label class="form-label required">File</label>
+            {{ form.file }}
+            {% if form.file.errors %}<div class="field-error">{{ form.file.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label required">File Format</label>
+            {{ form.file_format }}
+          </div>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            {{ form.skip_errors }}
+            <span>{{ form.skip_errors.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Template download -->
+      <div class="form-section">
+        <div class="form-section-title">Download Template</div>
+        <p class="text-muted-body">Download a blank template file to see the required column structure.</p>
+        <div class="action-group">
+          <a href="{% url 'export_records' %}?format=csv" class="btn btn-outline">CSV Template</a>
+          <a href="{% url 'export_records' %}?format=xlsx" class="btn btn-outline">Excel Template</a>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'record_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">↑ Upload & Import</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

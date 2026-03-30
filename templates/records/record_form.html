@@ -1,0 +1,146 @@
+{% extends "base/base.html" %}
+{% load record_extras %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-card">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Core fields section -->
+      <div class="form-section">
+        <div class="form-section-title">Core Fields</div>
+        <div class="form-grid two-col">
+          <div class="form-group">
+            <label class="form-label">PO Number</label>
+            {{ form.po_number }}
+            {% if form.po_number.errors %}<div class="field-error">{{ form.po_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pallet Number</label>
+            {{ form.pallet_number }}
+            {% if form.pallet_number.errors %}<div class="field-error">{{ form.pallet_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Carton Number</label>
+            {{ form.carton_number }}
+            {% if form.carton_number.errors %}<div class="field-error">{{ form.carton_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">PCB Label</label>
+            {{ form.pcb_label }}
+            {% if form.pcb_label.errors %}<div class="field-error">{{ form.pcb_label.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chip ID</label>
+            {{ form.chip_id }}
+            {% if form.chip_id.errors %}<div class="field-error">{{ form.chip_id.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Serial Number</label>
+            {{ form.serial_number }}
+            {% if form.serial_number.errors %}<div class="field-error">{{ form.serial_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Produce Date</label>
+            {{ form.produce_dt }}
+            {% if form.produce_dt.errors %}<div class="field-error">{{ form.produce_dt.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- MAC Addresses -->
+      <div class="form-section">
+        <div class="form-section-title">MAC Addresses <span class="section-hint">(Format: AA:BB:CC:DD:EE:FF)</span></div>
+        <div class="form-grid three-col">
+          <div class="form-group">
+            <label class="form-label">STB Mac</label>
+            {{ form.stb_mac }}
+            {% if form.stb_mac.errors %}<div class="field-error">{{ form.stb_mac.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">BT Mac</label>
+            {{ form.bt_mac }}
+            {% if form.bt_mac.errors %}<div class="field-error">{{ form.bt_mac.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">WiFi AP 5G</label>
+            {{ form.wifi_ap_5g }}
+            {% if form.wifi_ap_5g.errors %}<div class="field-error">{{ form.wifi_ap_5g.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">WiFi AP 2G</label>
+            {{ form.wifi_ap_2g }}
+            {% if form.wifi_ap_2g.errors %}<div class="field-error">{{ form.wifi_ap_2g.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">WiFi Client 5G</label>
+            {{ form.wifi_client_5g }}
+            {% if form.wifi_client_5g.errors %}<div class="field-error">{{ form.wifi_client_5g.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">WiFi Client 2G</label>
+            {{ form.wifi_client_2g }}
+            {% if form.wifi_client_2g.errors %}<div class="field-error">{{ form.wifi_client_2g.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        </div>
+      </div>
+
+      <!-- Dynamic / custom fields -->
+      {% with custom_fields=form.fields.items %}
+      {% if form|has_extra_fields %}
+      <div class="form-section">
+        <div class="form-section-title">Custom Fields</div>
+        <div class="form-grid two-col">
+          {% for field_name, field in form.fields.items %}
+          {% if field_name|startswith:"extra_" %}
+          <div class="form-group">
+            <label class="form-label {% if field.required %}required{% endif %}">{{ field.label }}</label>
+            {{ form|getfield:field_name }}
+            {% with err=form|getfield:field_name %}{% endwith %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <div class="form-section">
+        <div class="form-grid two-col">
+          {% for field_name, field in form.fields.items %}
+          {% if field_name|slice:":6" == "extra_" %}
+          <div class="form-group">
+            <label class="form-label {% if field.required %}required{% endif %}">{{ field.label }}</label>
+            {{ form|getfield:field_name }}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'record_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{{ action }} Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-format MAC address on input
+document.querySelectorAll('.mac-input').forEach(inp => {
+  inp.addEventListener('input', function(e) {
+    let val = this.value.replace(/[^0-9A-Fa-f]/g, '');
+    let formatted = val.match(/.{1,2}/g)?.join(':') || val;
+    if (formatted.length <= 17) this.value = formatted.toUpperCase();
+  });
+});
+</script>
+{% endblock %}

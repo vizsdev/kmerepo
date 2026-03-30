@@ -1,0 +1,23 @@
+{% extends "base/base.html" %}
+{% block title %}Delete Record{% endblock %}
+{% block page_title %}Delete Record{% endblock %}
+
+{% block content %}
+<div class="confirm-page">
+  <div class="confirm-card">
+    <div class="confirm-title">⚠ Confirm Delete</div>
+    <div class="confirm-body">
+      Are you sure you want to permanently delete record
+      <span class="confirm-value">{{ object.serial_number }}</span>?
+      This action cannot be undone.
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="action-group">
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'record_list' %}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
