@@ -1,0 +1,10 @@
+db.sqlite3
+.venv
+trackerenv
+.env*
+.vercel
+__pycache__/
+*.pyc
+.DS_Store
+backups/
+media/

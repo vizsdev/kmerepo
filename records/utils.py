@@ -1,6 +1,7 @@
 import csv
 import json
 import io
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -21,6 +22,83 @@ CORE_FIELDS = [
     'stb_mac', 'bt_mac', 'wifi_ap_5g', 'wifi_ap_2g', 'wifi_client_5g', 'wifi_client_2g',
     'produce_dt'
 ]
+
+
+def _normalize_field_name(name):
+    if name is None:
+        return ''
+    value = str(name).strip().lower()
+    # unify variants like "wifi client 5g", "wifi-client-5g", "WIFI_CLIENT_5G" to "wifi_client_5g"
+    normalized = re.sub(r'[^a-z0-9]+', '_', value)
+    normalized = normalized.strip('_')
+    return normalized
+
+
+def _normalize_rows(rows):
+    normalized = []
+    for row in rows:
+        norm_row = {}
+        for key, value in row.items():
+            if key is None:
+                continue
+            normalized_key = _normalize_field_name(key)
+            norm_row[normalized_key] = value
+            # keep original key for compatibility with edge cases
+            norm_row[key] = value
+        normalized.append(norm_row)
+    return normalized
+
+
+def _find_field_value(row, field_name, label=None):
+    if row is None:
+        return None
+
+    # Alias support for known header variants
+    FIELD_ALIASES = {
+        'wifi_client_5g': ['wifi_client_2g1', 'wifi_client_5g', 'wifi-client-5g', 'wifi client 5g', 'wificlient5g'],
+        'wifi_client_2g': ['wifi_client_2g', 'wifi-client-2g', 'wifi client 2g', 'wificlient2g'],
+    }
+
+    candidates = [field_name] if field_name else []
+    if field_name:
+        candidates.extend([field_name.replace('_', ''), field_name.replace('_', ' ')])
+
+    if label:
+        candidates.extend([label, label.replace(' ', '_')])
+
+    normalized_field = _normalize_field_name(field_name)
+    alias_candidates = FIELD_ALIASES.get(normalized_field, [])
+    candidates.extend(alias_candidates)
+
+    for cand in candidates:
+        if cand in row and row[cand] is not None:
+            return row[cand]
+        cand_norm = _normalize_field_name(cand)
+        if cand_norm in row and row[cand_norm] is not None:
+            return row[cand_norm]
+
+    # final fallback: match normalized form against any row key
+    norm_field = normalized_field
+    norm_label = _normalize_field_name(label) if label else None
+    for key, value in row.items():
+        if key is None or value is None:
+            continue
+        key_norm = _normalize_field_name(key)
+        if key_norm == norm_field or (norm_label and key_norm == norm_label):
+            return value
+
+    return None
+
+    # final fallback: match normalized form against any row key
+    norm_field = _normalize_field_name(field_name)
+    norm_label = _normalize_field_name(label) if label else None
+    for key, value in row.items():
+        if key is None or value is None:
+            continue
+        if _normalize_field_name(key) == norm_field or (norm_label and _normalize_field_name(key) == norm_label):
+            return value
+
+    return None
 
 
 def _get_all_headers():
@@ -59,9 +137,13 @@ def _parse_date(val):
         '%m/%d/%Y',
         '%d-%m-%Y',
         '%Y-%m-%d %H:%M',
+        '%Y-%m-%d %H:%M:%S',
         '%d/%m/%Y %H:%M',
+        '%d/%m/%Y %H:%M:%S',
         '%m/%d/%Y %H:%M',
+        '%m/%d/%Y %H:%M:%S',
         '%d-%m-%Y %H:%M',
+        '%d-%m-%Y %H:%M:%S',
     ):
         try:
             parsed = datetime.strptime(str(val).strip(), fmt)
@@ -77,35 +159,60 @@ def _import_rows(rows, user, skip_errors=True):
     custom_cols = {c.name: c for c in ColumnDefinition.objects.filter(is_core=False)}
 
     for i, row in enumerate(rows, start=2):
+        # Normalize keys on every import path for consistent field matching
+        normalized_row = {}
+        for key, value in row.items():
+            if key is None:
+                continue
+            normalized_key = _normalize_field_name(key)
+            normalized_row[normalized_key] = value
+            normalized_row[key] = value
+        row = normalized_row
+
         try:
-            serial = str(row.get('serial_number', '')).strip()
+            serial = str(_find_field_value(row, 'serial_number')).strip() if _find_field_value(row, 'serial_number') is not None else ''
             if not serial:
                 raise ValueError('serial_number is required')
 
-            prod_date_raw = row.get('produce_dt', '')
+            prod_date_raw = _find_field_value(row, 'produce_dt')
             prod_date = _parse_date(prod_date_raw)
             if not prod_date:
                 raise ValueError('produce_dt is required')
 
             extra = {}
-            for col_name in custom_cols:
+            for col_name, col_obj in custom_cols.items():
+                cell_val = None
+                normalized_label = _normalize_field_name(col_obj.label)
+                # Prefer exact internal column name (normalized)
                 if col_name in row:
-                    extra[col_name] = str(row[col_name]) if row[col_name] is not None else ''
+                    cell_val = row[col_name]
+                elif normalized_label in row:
+                    cell_val = row[normalized_label]
+                elif col_obj.label in row:
+                    cell_val = row[col_obj.label]
+                else:
+                    for row_key in row:
+                        norm_key = _normalize_field_name(row_key)
+                        if norm_key == col_name or norm_key == normalized_label:
+                            cell_val = row[row_key]
+                            break
+                if cell_val is not None:
+                    extra[col_name] = str(cell_val) if cell_val is not None else ''
 
             record, created = ProductionRecord.objects.update_or_create(
                 serial_number=serial,
                 defaults={
-                    'po_number': str(row.get('po_number', '') or ''),
-                    'pallet_number': str(row.get('pallet_number', '') or ''),
-                    'carton_number': str(row.get('carton_number', '') or ''),
-                    'pcb_label': str(row.get('pcb_label', '') or ''),
-                    'chip_id': str(row.get('chip_id', '') or ''),
-                    'stb_mac': str(row.get('stb_mac', '') or ''),
-                    'bt_mac': str(row.get('bt_mac', '') or ''),
-                    'wifi_ap_5g': str(row.get('wifi_ap_5g', '') or ''),
-                    'wifi_ap_2g': str(row.get('wifi_ap_2g', '') or ''),
-                    'wifi_client_5g': str(row.get('wifi_client_5g', '') or ''),
-                    'wifi_client_2g': str(row.get('wifi_client_2g', '') or ''),
+                    'po_number': str(_find_field_value(row, 'po_number') or ''),
+                    'pallet_number': str(_find_field_value(row, 'pallet_number') or ''),
+                    'carton_number': str(_find_field_value(row, 'carton_number') or ''),
+                    'pcb_label': str(_find_field_value(row, 'pcb_label') or ''),
+                    'chip_id': str(_find_field_value(row, 'chip_id') or ''),
+                    'stb_mac': str(_find_field_value(row, 'stb_mac') or ''),
+                    'bt_mac': str(_find_field_value(row, 'bt_mac') or ''),
+                    'wifi_ap_5g': str(_find_field_value(row, 'wifi_ap_5g') or ''),
+                    'wifi_ap_2g': str(_find_field_value(row, 'wifi_ap_2g') or ''),
+                    'wifi_client_5g': str(_find_field_value(row, 'wifi_client_5g') or ''),
+                    'wifi_client_2g': str(_find_field_value(row, 'wifi_client_2g') or ''),
                     'produce_dt': prod_date,
                     'extra_data': extra,
                     'updated_by': user,
@@ -131,7 +238,7 @@ def _import_rows(rows, user, skip_errors=True):
 def import_csv(file_obj, user, skip_errors=True):
     decoded = file_obj.read().decode('utf-8-sig')
     reader = csv.DictReader(io.StringIO(decoded))
-    rows = list(reader)
+    rows = _normalize_rows(list(reader))
     return _import_rows(rows, user, skip_errors)
 
 
@@ -144,6 +251,7 @@ def import_xlsx(file_obj, user, skip_errors=True):
         row_dict = {headers[i]: (row[i] if i < len(row) else None) for i in range(len(headers))}
         if any(v for v in row_dict.values()):
             rows.append(row_dict)
+    rows = _normalize_rows(rows)
     return _import_rows(rows, user, skip_errors)
 
 

@@ -50,6 +50,11 @@
           <span class="nav-icon">⚙</span> Admin Panel
         </a>
         {% endif %}
+        {% if project_tracker_url %}
+        <a href="{{ project_tracker_url }}" class="nav-item" target="_blank" rel="noopener">
+          <span class="nav-icon">↗</span> Project Management tracker
+        </a>
+        {% endif %}
       </nav>
 
       <div class="sidebar-footer">
