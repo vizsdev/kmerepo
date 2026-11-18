@@ -7,8 +7,10 @@
   <div class="form-card">
     <div class="info-banner">
       <span class="info-icon">ℹ</span>
+      <div>
       File must include headers: <code>PO_Number</code>, <code>palletNumber</code>, <code>cartonNumber</code>, <code>pcb_label</code>, <code>chip_id</code>, <code>serial_number</code>, <code>STB_Mac</code>, <code>BT_Mac</code>, <code>Wifi_AP_5G</code>, <code>Wifi_AP_2G</code>, <code>Wifi_Client_5G</code>, <code>Wifi_Client_2G</code>, <code>produce_dt</code>, plus any custom columns.
       Records whose serial_number already exists (or repeats within the file) are skipped, never overwritten. Max file size 4.5 MB.
+      </div>
     </div>
 
     <form method="post" enctype="multipart/form-data" novalidate>

@@ -79,3 +79,20 @@ class SidebarTests(TestCase):
         self.assertNotIn('Manage Columns', html)
         self.assertNotIn('Admin Panel', html)
         self.assertEqual(self.client.get('/columns/').status_code, 404)
+
+
+class PageRenderTests(TestCase):
+    def setUp(self):
+        self.client.force_login(User.objects.create_user('v', password='pw-123456789'))
+        self.rec = ProductionRecord.objects.create(serial_number='SN900', stb_mac='AA:BB:CC:DD:EE:01', produce_dt=date(2026, 1, 1))
+
+    def test_all_pages_render(self):
+        for url in ['/', '/records/create/', f'/records/{self.rec.pk}/', f'/records/{self.rec.pk}/edit/',
+                    f'/records/{self.rec.pk}/delete/', '/import/', '/import/logs/']:
+            self.assertEqual(self.client.get(url).status_code, 200, url)
+        self.assertContains(self.client.get(f'/records/{self.rec.pk}/'), 'AA:BB:CC:DD:EE:01')
+
+    def test_theme_switch_and_post_logout(self):
+        html = self.client.get('/').content.decode()
+        self.assertIn('data-theme-choice="dark"', html)
+        self.assertEqual(self.client.post('/logout/').status_code, 302)

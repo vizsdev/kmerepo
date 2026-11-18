@@ -25,7 +25,7 @@
     <tbody>
       {% for log in logs %}
       <tr class="data-row">
-        <td class="mono">{{ log.file_name }}</td>
+        <td class="mono wrap">{{ log.file_name }}</td>
         <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
         <td class="mono">{{ log.total_rows }}</td>
         <td class="mono" style="color:var(--success)">{{ log.success_rows }}</td>
@@ -45,7 +45,7 @@
       </tr>
       {% if log.errors or log.skipped %}
       <tr id="err-{{ log.pk }}" style="display:none;">
-        <td colspan="9" style="padding:0 12px 12px;">
+        <td colspan="9" class="detail-cell" style="padding:0 12px 12px;">
           <ul class="error-list">
             {% for err in log.errors %}
             <li>{{ err }}</li>
@@ -62,7 +62,7 @@
       <tr>
         <td colspan="9" class="empty-state">
           <div class="empty-inner">
-            <div class="empty-icon">⬡</div>
+            <div class="empty-icon">◆</div>
             <div class="empty-title">No imports yet</div>
             <div class="empty-sub"><a href="{% url 'import_records' %}">Import your first file</a></div>
           </div>

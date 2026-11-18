@@ -5,11 +5,35 @@ function getCookie(name) {
   return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1] || '';
 }
 
+// ─── Theme: light / dark / auto (matches device), remembered per browser ───
+function currentTheme() {
+  try { return localStorage.getItem('pt_theme') || 'auto'; } catch (e) { return 'auto'; }
+}
+function setTheme(choice) {
+  const root = document.documentElement;
+  if (choice === 'auto') delete root.dataset.theme; else root.dataset.theme = choice;
+  try { localStorage.setItem('pt_theme', choice); } catch (e) {}
+  document.querySelectorAll('[data-theme-choice]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === choice)));
+}
+document.addEventListener('DOMContentLoaded', function () {
+  setTheme(currentTheme());
+  document.querySelectorAll('[data-theme-choice]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeChoice)));
+});
+
+// ─── Mobile sidebar menu ───
+function toggleMenu(btn) {
+  const open = document.getElementById('sidebar').classList.toggle('open');
+  btn.setAttribute('aria-expanded', String(open));
+  btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+}
+
 // ─── Auto-dismiss alerts ───
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.alert').forEach(el => {
-    setTimeout(() => el.style.opacity = '0', 4000);
-    setTimeout(() => el.remove(), 4400);
+    if (el.closest('.login-card')) return;
+    el.style.transition = 'opacity .3s';
+    setTimeout(() => el.style.opacity = '0', 6000);
+    setTimeout(() => el.remove(), 6400);
   });
 });
 

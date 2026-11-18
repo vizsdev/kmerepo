@@ -4,41 +4,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In — KME Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Sign in · KME Tracker</title>
+  <script>try{var t=localStorage.getItem('pt_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101010'/%3E%3Crect x='12' y='6' width='8' height='20' rx='2' fill='%23F97B13'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body class="login-body">
-  <div class="login-wrap">
-    <div class="login-brand">
-      <span class="brand-icon large">⬡</span>
-      <div class="brand-name large">KME Tracker</div>
-      <div class="brand-sub">Manufacturing Production System</div>
-    </div>
-
-    <div class="login-card">
-      <h2 class="login-title">Sign in</h2>
-      {% if form.errors %}
-      <div class="alert alert-error">Invalid username or password.</div>
-      {% endif %}
-      <form method="post">
-        {% csrf_token %}
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" name="username" class="form-input" autofocus required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" name="password" class="form-input" required>
-        </div>
-        <input type="hidden" name="next" value="{{ next }}">
-        <button type="submit" class="btn btn-primary full-width">Sign In →</button>
-      </form>
-    </div>
-
-    <div class="login-footer">
-      Version 1.0 · Production Tracker
-    </div>
-  </div>
+  <aside class="login-side">
+    <div class="brand"><i class="brand-mark" aria-hidden="true"></i><b class="brand-name">KME<span>TRACKER</span></b></div>
+    <div class="login-pitch"><h2>Production Records Tracker</h2><p>Serial numbers, MAC addresses, pallets and cartons in one place.</p></div>
+    <small>Kaon Connected Devices · Internal tool</small>
+  </aside>
+  <main class="login-main">
+    <form method="post" class="login-card">
+      {% csrf_token %}
+      <h1 class="login-title">Sign in</h1>
+      <p class="login-sub">Use your tracker account.</p>
+      {% if form.errors %}<div class="alert alert-error" role="alert">Incorrect username or password.</div>{% endif %}
+      <div class="form-group">
+        <label class="form-label" for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" class="form-input" autocomplete="username" autofocus required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" class="form-input" autocomplete="current-password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn btn-primary full-width">Sign in</button>
+    </form>
+  </main>
 </body>
 </html>
