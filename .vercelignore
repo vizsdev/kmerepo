@@ -10,3 +10,5 @@ render.yaml
 .DS_Store
 {production_tracker,records,templates
 DEPLOY_VERCEL.md
+tools
+CLAUDE.md
