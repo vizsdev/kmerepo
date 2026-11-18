@@ -16,6 +16,7 @@
         <th>Total</th>
         <th>Success</th>
         <th>Errors</th>
+        <th>Duplicates skipped</th>
         <th>Imported By</th>
         <th>Date</th>
         <th>Details</th>
@@ -31,30 +32,35 @@
         <td class="mono" style="color:{% if log.error_rows > 0 %}var(--danger){% else %}var(--text-3){% endif %}">
           {{ log.error_rows }}
         </td>
+        <td class="mono" style="color:var(--text-3)">{{ log.skipped_rows }}</td>
         <td>{{ log.imported_by.username|default:"—" }}</td>
         <td class="mono">{{ log.imported_at|date:"Y-m-d H:i" }}</td>
         <td>
-          {% if log.errors %}
-          <button class="btn btn-ghost tiny" onclick="toggleErrors('err-{{ log.pk }}')">Show errors</button>
+          {% if log.errors or log.skipped %}
+          <button class="btn btn-ghost tiny" onclick="toggleErrors('err-{{ log.pk }}')">Show details</button>
           {% else %}
           <span class="text-muted">—</span>
           {% endif %}
         </td>
       </tr>
-      {% if log.errors %}
+      {% if log.errors or log.skipped %}
       <tr id="err-{{ log.pk }}" style="display:none;">
-        <td colspan="8" style="padding:0 12px 12px;">
+        <td colspan="9" style="padding:0 12px 12px;">
           <ul class="error-list">
             {% for err in log.errors %}
             <li>{{ err }}</li>
             {% endfor %}
+            {% for s in log.skipped|slice:":500" %}
+            <li style="color:var(--text-3)">{{ s }}</li>
+            {% endfor %}
+            {% if log.skipped|length > 500 %}<li style="color:var(--text-3)">… and {{ log.skipped|length|add:"-500" }} more duplicates</li>{% endif %}
           </ul>
         </td>
       </tr>
       {% endif %}
       {% empty %}
       <tr>
-        <td colspan="8" class="empty-state">
+        <td colspan="9" class="empty-state">
           <div class="empty-inner">
             <div class="empty-icon">⬡</div>
             <div class="empty-title">No imports yet</div>

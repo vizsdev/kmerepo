@@ -11,32 +11,6 @@ def validate_mac(value):
         raise forms.ValidationError(f'"{value}" is not a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)')
 
 
-class ColumnDefinitionForm(forms.ModelForm):
-    class Meta:
-        model = ColumnDefinition
-        fields = ['label', 'name', 'field_type', 'options', 'is_required', 'is_visible']
-        widgets = {
-            'label': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Display Label'}),
-            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'field_name (no spaces)'}),
-            'field_type': forms.Select(attrs={'class': 'form-select', 'id': 'id_field_type'}),
-            'options': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Option1, Option2, Option3'}),
-            'is_required': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'is_visible': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-        }
-
-    def clean_name(self):
-        name = self.cleaned_data['name'].strip().replace(' ', '_').lower()
-        reserved = [
-            'po_number', 'pallet_number', 'carton_number', 'pcb_label', 'chip_id',
-            'serial_number', 'stb_mac', 'bt_mac', 'wifi_ap_5g', 'wifi_ap_2g',
-            'wifi_client_5g', 'wifi_client_2g', 'produce_dt',
-            'created_at', 'updated_at', 'id'
-        ]
-        if name in reserved:
-            raise forms.ValidationError(f'"{name}" is a reserved field name.')
-        return name
-
-
 class ProductionRecordForm(forms.ModelForm):
     stb_mac = forms.CharField(required=False, validators=[validate_mac],
                               widget=forms.TextInput(attrs={'class': 'form-input mac-input', 'placeholder': 'AA:BB:CC:DD:EE:FF'}))
@@ -118,6 +92,17 @@ class ProductionRecordForm(forms.ModelForm):
                     validators=[validate_mac],
                     widget=forms.TextInput(attrs={'class': 'form-input mac-input', 'placeholder': 'AA:BB:CC:DD:EE:FF'})
                 )
+
+    def clean_serial_number(self):
+        serial = (self.cleaned_data.get('serial_number') or '').strip()
+        if not serial:
+            raise forms.ValidationError('Serial number is required.')
+        dup = ProductionRecord.objects.filter(serial_number__iexact=serial)
+        if self.instance.pk:
+            dup = dup.exclude(pk=self.instance.pk)
+        if dup.exists():
+            raise forms.ValidationError(f'A record with serial number "{serial}" already exists.')
+        return serial
 
     def save(self, commit=True):
         instance = super().save(commit=False)

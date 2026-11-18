@@ -5,6 +5,7 @@ import re
 from datetime import date, datetime
 from decimal import Decimal
 
+from django.db import models, transaction
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from django.http import HttpResponse
@@ -153,10 +154,35 @@ def _parse_date(val):
     raise ValueError(f'Cannot parse date: {val}')
 
 
+def serial_key(value):
+    """Duplicate-check key for a serial number: trimmed, case-insensitive."""
+    return str(value or '').strip().upper()
+
+
+def existing_serial_keys(keys, chunk=2000):
+    """Return the subset of serial keys that already exist in the database (case-insensitive)."""
+    from django.db.models.functions import Upper, Trim
+    keys = list(keys)
+    found = set()
+    for i in range(0, len(keys), chunk):
+        part = keys[i:i + chunk]
+        found.update(
+            ProductionRecord.objects.annotate(_k=Upper(Trim('serial_number')))
+            .filter(_k__in=part).values_list('_k', flat=True)
+        )
+    return found
+
+
 def _import_rows(rows, user, skip_errors=True):
+    """Validate every row, then insert only records whose serial_number is not already stored.
+
+    Existing records are never overwritten. Rows whose serial already exists in the database,
+    or appears earlier in the same file, are skipped and reported. Returns (created, errors, skipped).
+    If skip_errors is False and any row is invalid, nothing is imported.
+    """
     log_errors = []
-    success = 0
     custom_cols = {c.name: c for c in ColumnDefinition.objects.filter(is_core=False)}
+    parsed = []  # (row_number, serial, fields)
 
     for i, row in enumerate(rows, start=2):
         # Normalize keys on every import path for consistent field matching
@@ -164,18 +190,17 @@ def _import_rows(rows, user, skip_errors=True):
         for key, value in row.items():
             if key is None:
                 continue
-            normalized_key = _normalize_field_name(key)
-            normalized_row[normalized_key] = value
+            normalized_row[_normalize_field_name(key)] = value
             normalized_row[key] = value
         row = normalized_row
 
         try:
-            serial = str(_find_field_value(row, 'serial_number')).strip() if _find_field_value(row, 'serial_number') is not None else ''
+            raw_serial = _find_field_value(row, 'serial_number')
+            serial = str(raw_serial).strip() if raw_serial is not None else ''
             if not serial:
                 raise ValueError('serial_number is required')
 
-            prod_date_raw = _find_field_value(row, 'produce_dt')
-            prod_date = _parse_date(prod_date_raw)
+            prod_date = _parse_date(_find_field_value(row, 'produce_dt'))
             if not prod_date:
                 raise ValueError('produce_dt is required')
 
@@ -183,7 +208,6 @@ def _import_rows(rows, user, skip_errors=True):
             for col_name, col_obj in custom_cols.items():
                 cell_val = None
                 normalized_label = _normalize_field_name(col_obj.label)
-                # Prefer exact internal column name (normalized)
                 if col_name in row:
                     cell_val = row[col_name]
                 elif normalized_label in row:
@@ -197,38 +221,38 @@ def _import_rows(rows, user, skip_errors=True):
                             cell_val = row[row_key]
                             break
                 if cell_val is not None:
-                    extra[col_name] = str(cell_val) if cell_val is not None else ''
+                    extra[col_name] = str(cell_val)
 
-            record, created = ProductionRecord.objects.update_or_create(
-                serial_number=serial,
-                defaults={
-                    'po_number': str(_find_field_value(row, 'po_number') or ''),
-                    'pallet_number': str(_find_field_value(row, 'pallet_number') or ''),
-                    'carton_number': str(_find_field_value(row, 'carton_number') or ''),
-                    'pcb_label': str(_find_field_value(row, 'pcb_label') or ''),
-                    'chip_id': str(_find_field_value(row, 'chip_id') or ''),
-                    'stb_mac': str(_find_field_value(row, 'stb_mac') or ''),
-                    'bt_mac': str(_find_field_value(row, 'bt_mac') or ''),
-                    'wifi_ap_5g': str(_find_field_value(row, 'wifi_ap_5g') or ''),
-                    'wifi_ap_2g': str(_find_field_value(row, 'wifi_ap_2g') or ''),
-                    'wifi_client_5g': str(_find_field_value(row, 'wifi_client_5g') or ''),
-                    'wifi_client_2g': str(_find_field_value(row, 'wifi_client_2g') or ''),
-                    'produce_dt': prod_date,
-                    'extra_data': extra,
-                    'updated_by': user,
-                }
-            )
-            if created:
-                record.created_by = user
-                record.save(update_fields=['created_by'])
-            success += 1
+            fields = {f: str(_find_field_value(row, f) or '') for f in (
+                'po_number', 'pallet_number', 'carton_number', 'pcb_label', 'chip_id',
+                'stb_mac', 'bt_mac', 'wifi_ap_5g', 'wifi_ap_2g', 'wifi_client_5g', 'wifi_client_2g')}
+            fields['produce_dt'] = prod_date
+            fields['extra_data'] = extra
+            parsed.append((i, serial, fields))
         except Exception as e:
-            msg = f'Row {i}: {e}'
-            log_errors.append(msg)
-            if not skip_errors:
-                raise
+            log_errors.append(f'Row {i}: {e}')
 
-    return success, log_errors
+    if log_errors and not skip_errors:
+        raise ValueError(f'{len(log_errors)} invalid row(s), nothing imported. First: {log_errors[0]}')
+
+    in_db = existing_serial_keys({serial_key(s) for _, s, _ in parsed})
+    seen = {}
+    skipped = []
+    new_records = []
+    for i, serial, fields in parsed:
+        key = serial_key(serial)
+        if key in in_db:
+            skipped.append(f'Row {i}: serial {serial} already exists, skipped')
+        elif key in seen:
+            skipped.append(f'Row {i}: serial {serial} repeats row {seen[key]} in this file, skipped')
+        else:
+            seen[key] = i
+            new_records.append(ProductionRecord(serial_number=serial, created_by=user, updated_by=user, **fields))
+
+    with transaction.atomic():
+        # ignore_conflicts guards against a record added by someone else between the check and the insert
+        ProductionRecord.objects.bulk_create(new_records, batch_size=1000, ignore_conflicts=True)
+    return len(new_records), log_errors, skipped
 
 
 # ─────────────────────────────────────────────

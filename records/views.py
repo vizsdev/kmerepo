@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.contrib import messages
 
 from .models import ProductionRecord, ColumnDefinition, ImportLog
-from .forms import ProductionRecordForm, ColumnDefinitionForm, ImportForm
+from .forms import ProductionRecordForm, ImportForm
 from .utils import import_csv, import_xlsx, import_json, export_csv, export_xlsx, export_json
 
 
@@ -166,79 +166,6 @@ def bulk_delete(request):
 # COLUMN VIEWS
 # ─────────────────────────────────────────────
 
-class ColumnListView(LoginRequiredMixin, ListView):
-    model = ColumnDefinition
-    template_name = 'records/column_list.html'
-    context_object_name = 'columns'
-    queryset = ColumnDefinition.objects.all().order_by('order', 'id')
-
-
-class ColumnCreateView(LoginRequiredMixin, CreateView):
-    model = ColumnDefinition
-    form_class = ColumnDefinitionForm
-    template_name = 'records/column_form.html'
-    success_url = reverse_lazy('column_list')
-
-    def form_valid(self, form):
-        # Set order to last position
-        last = ColumnDefinition.objects.order_by('-order').first()
-        form.instance.order = (last.order + 1) if last else 0
-        messages.success(self.request, f'Column "{form.instance.label}" created.')
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['title'] = 'New Column'
-        ctx['action'] = 'Create'
-        return ctx
-
-
-class ColumnUpdateView(LoginRequiredMixin, UpdateView):
-    model = ColumnDefinition
-    form_class = ColumnDefinitionForm
-    template_name = 'records/column_form.html'
-    success_url = reverse_lazy('column_list')
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        if self.object.is_core:
-            for field in form.fields:
-                form.fields[field].disabled = True
-        return form
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['title'] = f'Edit Column — {self.object.label}'
-        ctx['action'] = 'Update'
-        return ctx
-
-
-class ColumnDeleteView(LoginRequiredMixin, DeleteView):
-    model = ColumnDefinition
-    template_name = 'records/column_confirm_delete.html'
-    success_url = reverse_lazy('column_list')
-
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if obj.is_core:
-            messages.error(request, 'Core columns cannot be deleted.')
-            return redirect('column_list')
-        return super().dispatch(request, *args, **kwargs)
-
-
-@login_required
-def reorder_columns(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            for item in data.get('order', []):
-                ColumnDefinition.objects.filter(pk=item['id']).update(order=item['order'])
-            return JsonResponse({'status': 'ok'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    return JsonResponse({'status': 'error'}, status=405)
-
-
 @login_required
 def toggle_column_visibility(request, pk):
     col = get_object_or_404(ColumnDefinition, pk=pk)
@@ -270,19 +197,21 @@ class ImportView(LoginRequiredMixin, View):
         log = ImportLog.objects.create(file_name=file.name, imported_by=request.user)
         try:
             if fmt == 'csv':
-                success, errors = import_csv(file, request.user, skip)
+                success, errors, skipped = import_csv(file, request.user, skip)
             elif fmt == 'xlsx':
-                success, errors = import_xlsx(file, request.user, skip)
+                success, errors, skipped = import_xlsx(file, request.user, skip)
             else:
-                success, errors = import_json(file, request.user, skip)
+                success, errors, skipped = import_json(file, request.user, skip)
 
             log.success_rows = success
             log.error_rows = len(errors)
-            log.total_rows = success + len(errors)
+            log.skipped_rows = len(skipped)
+            log.total_rows = success + len(errors) + len(skipped)
             log.errors = errors
+            log.skipped = skipped
             log.status = 'success' if not errors else ('partial' if success > 0 else 'failed')
             log.save()
-            messages.success(request, f'Import complete: {success} rows imported, {len(errors)} errors.')
+            messages.success(request, f'Import complete: {success} new records, {len(skipped)} duplicates skipped, {len(errors)} errors.')
         except Exception as e:
             log.status = 'failed'
             log.errors = [str(e)]

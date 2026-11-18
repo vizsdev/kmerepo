@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Trim, Upper
 from django.contrib.auth.models import User
 import json
 
@@ -65,6 +66,8 @@ class ProductionRecord(models.Model):
 
     class Meta:
         ordering = ['-produce_dt', '-created_at']
+        # Speeds up the case-insensitive duplicate check used by imports (see utils.existing_serial_keys).
+        indexes = [models.Index(Upper(Trim('serial_number')), name='record_serial_key_idx')]
 
     def __str__(self):
         return f"Record {self.serial_number}"
@@ -88,6 +91,8 @@ class ImportLog(models.Model):
     total_rows = models.PositiveIntegerField(default=0)
     success_rows = models.PositiveIntegerField(default=0)
     error_rows = models.PositiveIntegerField(default=0)
+    skipped_rows = models.PositiveIntegerField(default=0)  # duplicates: serial already stored or repeated in file
+    skipped = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     errors = models.JSONField(default=list)
 

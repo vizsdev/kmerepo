@@ -15,11 +15,6 @@ urlpatterns = [
     path('records/bulk-delete/', views.bulk_delete, name='bulk_delete'),
 
     # Column management
-    path('columns/', views.ColumnListView.as_view(), name='column_list'),
-    path('columns/create/', views.ColumnCreateView.as_view(), name='column_create'),
-    path('columns/<int:pk>/edit/', views.ColumnUpdateView.as_view(), name='column_edit'),
-    path('columns/<int:pk>/delete/', views.ColumnDeleteView.as_view(), name='column_delete'),
-    path('columns/reorder/', views.reorder_columns, name='column_reorder'),
     path('columns/toggle/<int:pk>/', views.toggle_column_visibility, name='column_toggle'),
 
     # Import / Export
