@@ -5,10 +5,8 @@ db.sqlite3
 staticfiles
 media
 backups
-render.yaml
 **/__pycache__
 .DS_Store
-{production_tracker,records,templates
 DEPLOY_VERCEL.md
 tools
 CLAUDE.md

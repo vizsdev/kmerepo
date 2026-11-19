@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.models.functions import Trim, Upper
 from django.contrib.auth.models import User
-import json
 
 
 FIELD_TYPES = [

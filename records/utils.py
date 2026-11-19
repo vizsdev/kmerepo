@@ -3,14 +3,13 @@ import json
 import io
 import re
 from datetime import date, datetime
-from decimal import Decimal
 
-from django.db import models, transaction
+from django.db import transaction
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from django.http import HttpResponse
 
-from .models import ProductionRecord, ColumnDefinition, ImportLog
+from .models import ProductionRecord, ColumnDefinition
 
 
 # ─────────────────────────────────────────────
@@ -95,17 +94,6 @@ def _find_field_value(row, field_name, label=None):
             continue
         key_norm = _normalize_field_name(key)
         if key_norm == norm_field or (norm_label and key_norm == norm_label):
-            return value
-
-    return None
-
-    # final fallback: match normalized form against any row key
-    norm_field = _normalize_field_name(field_name)
-    norm_label = _normalize_field_name(label) if label else None
-    for key, value in row.items():
-        if key is None or value is None:
-            continue
-        if _normalize_field_name(key) == norm_field or (norm_label and _normalize_field_name(key) == norm_label):
             return value
 
     return None
@@ -328,18 +316,6 @@ def export_records(queryset, fmt='csv', filename='production_records'):
     return write_table(fmt, _get_all_headers(), list(rows), filename, 'Production Records')
 
 
-def export_csv(queryset):
-    return export_records(queryset, 'csv')
-
-
-def export_xlsx(queryset):
-    return export_records(queryset, 'xlsx')
-
-
-def export_json(queryset):
-    return export_records(queryset, 'json')
-
-
 LOG_HEADERS = ['id', 'file_name', 'status', 'total_rows', 'success_rows', 'error_rows',
                'skipped_rows', 'records_available', 'imported_by', 'imported_at']
 
@@ -449,75 +425,3 @@ def export_import_report(log, fmt='csv'):
             rows.append({'type': kind, 'row': m.group(1) if m else '', 'message': m.group(2) if m else str(msg)})
     return write_table(fmt, ['type', 'row', 'message'], rows,
                        f'import_{log.pk}_report', 'Import Report')
-
-
-# ─────────────────────────────────────────────
-# MAC-to-serial lookup import
-# ─────────────────────────────────────────────
-
-def _find_record_by_mac(mac):
-    if not mac:
-        return None
-    mac_norm = str(mac).strip()
-    if not mac_norm:
-        return None
-    return ProductionRecord.objects.filter(
-        models.Q(stb_mac__iexact=mac_norm) |
-        models.Q(bt_mac__iexact=mac_norm) |
-        models.Q(wifi_ap_5g__iexact=mac_norm) |
-        models.Q(wifi_ap_2g__iexact=mac_norm) |
-        models.Q(wifi_client_5g__iexact=mac_norm) |
-        models.Q(wifi_client_2g__iexact=mac_norm)
-    ).first()
-
-
-def _normalize_mac_header(headers):
-    normalized = [h.strip().lower() for h in headers]
-    for k in ('stb_mac', 'bt_mac', 'wifi_ap_5g', 'wifi_ap_2g', 'wifi_client_5g', 'wifi_client_2g', 'mac'):
-        if k in normalized:
-            return k
-    return None
-
-
-def map_macs_to_serial(rows):
-    """rows: list of dicts containing at least one MAC value. Returns mapping list."""
-    output = []
-    for i, row in enumerate(rows, start=2):
-        # try to find a mac field in row
-        mac_value = ''
-        for key in row:
-            if key.strip().lower() in ('stb_mac', 'bt_mac', 'wifi_ap_5g', 'wifi_ap_2g', 'wifi_client_5g', 'wifi_client_2g', 'mac'):
-                mac_value = str(row.get(key, '') or '').strip()
-                if mac_value:
-                    break
-        if not mac_value:
-            output.append({'row': i, 'mac': None, 'serial_number': None, 'error': 'No MAC value found'})
-            continue
-
-        rec = _find_record_by_mac(mac_value)
-        if rec:
-            output.append({'row': i, 'mac': mac_value, 'serial_number': rec.serial_number, 'status': 'found'})
-        else:
-            output.append({'row': i, 'mac': mac_value, 'serial_number': None, 'error': 'No matching record'})
-    return output
-
-
-def import_mac_list_csv(file_obj, skip_errors=False):
-    decoded = file_obj.read().decode('utf-8-sig')
-    reader = csv.DictReader(io.StringIO(decoded))
-    rows = list(reader)
-    return map_macs_to_serial(rows)
-
-
-def import_mac_list_xlsx(file_obj, skip_errors=False):
-    wb = openpyxl.load_workbook(file_obj, data_only=True)
-    ws = wb.active
-    headers = [str(cell.value).strip() if cell.value else '' for cell in ws[1]]
-    rows = []
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        # skip empty rows
-        if not any(row):
-            continue
-        row_dict = {headers[i]: (row[i] if i < len(row) else None) for i in range(len(headers))}
-        rows.append(row_dict)
-    return map_macs_to_serial(rows)
