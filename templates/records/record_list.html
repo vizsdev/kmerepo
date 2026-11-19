@@ -9,6 +9,7 @@
   <div class="dropdown">
     <button class="btn btn-outline dropdown-toggle" id="exportBtn">↓ Export</button>
     <div class="dropdown-menu" id="exportMenu">
+      <div class="dropdown-header">{% if search or date_from or date_to %}All filtered records{% else %}All records{% endif %}</div>
       <a href="{% url 'export_records' %}?format=csv&{{ request.GET.urlencode }}" class="dropdown-item">CSV</a>
       <a href="{% url 'export_records' %}?format=xlsx&{{ request.GET.urlencode }}" class="dropdown-item">Excel (.xlsx)</a>
       <a href="{% url 'export_records' %}?format=json&{{ request.GET.urlencode }}" class="dropdown-item">JSON</a>
@@ -67,6 +68,7 @@
       <option value="-serial_number" {% if sort == '-serial_number' %}selected{% endif %}>Serial ↓</option>
       <option value="-created_at" {% if sort == '-created_at' %}selected{% endif %}>Newest First</option>
       <option value="created_at" {% if sort == 'created_at' %}selected{% endif %}>Oldest First</option>
+      {% if sort not in sort_presets %}<option value="{{ sort }}" selected>By column ({{ sort|cut:"-"|cut:"x_" }} {% if sort|slice:":1" == "-" %}↓{% else %}↑{% endif %})</option>{% endif %}
     </select>
   </div>
   <button type="submit" class="btn btn-secondary">Filter</button>
@@ -90,9 +92,17 @@
 <!-- Bulk actions bar -->
 <div class="bulk-bar" id="bulkBar" style="display:none;">
   <span class="bulk-count" id="bulkCount">0 selected</span>
-  <form method="post" action="{% url 'bulk_delete' %}" id="bulkForm">
+  <form method="post" action="{% url 'bulk_delete' %}" id="bulkForm" style="display:flex;gap:8px;align-items:center;">
     {% csrf_token %}
     <div id="bulkIdsContainer"></div>
+    <div class="dropdown">
+      <button type="button" class="btn btn-outline dropdown-toggle">↓ Export Selected</button>
+      <div class="dropdown-menu left">
+        <button type="submit" formaction="{% url 'export_records' %}" name="format" value="csv" class="dropdown-item">CSV</button>
+        <button type="submit" formaction="{% url 'export_records' %}" name="format" value="xlsx" class="dropdown-item">Excel (.xlsx)</button>
+        <button type="submit" formaction="{% url 'export_records' %}" name="format" value="json" class="dropdown-item">JSON</button>
+      </div>
+    </div>
     <button type="submit" class="btn btn-danger" onclick="return confirm('Delete selected records?')">Delete Selected</button>
   </form>
   <button class="btn btn-ghost" onclick="clearSelection()">✕ Clear</button>
@@ -160,14 +170,5 @@ document.addEventListener('change', function(e) {
   }
 });
 
-// Export dropdown
-document.getElementById('exportBtn').addEventListener('click', function() {
-  document.getElementById('exportMenu').classList.toggle('show');
-});
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('.dropdown')) {
-    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
-  }
-});
 </script>
 {% endblock %}

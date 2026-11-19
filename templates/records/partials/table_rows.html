@@ -5,22 +5,22 @@
     <thead>
       <tr>
         <th class="col-check"><input type="checkbox" id="selectAll" class="form-checkbox"></th>
-        <th class="col-po">PO_Number</th>
-        <th class="col-pallet">palletNumber</th>
-        <th class="col-carton">cartonNumber</th>
-        <th class="col-pcb">pcb_label</th>
-        <th class="col-chip">chip_id</th>
-        <th class="col-serial sortable" data-sort="serial_number">serial_number</th>
-        <th class="col-stb">STB_Mac</th>
-        <th class="col-bt">BT_Mac</th>
-        <th class="col-wifi">Wifi_AP_5G</th>
-        <th class="col-wifi">Wifi_AP_2G</th>
-        <th class="col-wifi">Wifi_Client_5G</th>
-        <th class="col-wifi">Wifi_Client_2G</th>
-        <th class="col-date sortable" data-sort="produce_dt">produce_dt</th>
+        <th class="col-po sortable" data-sort="po_number">PO_Number{% if sort == "po_number" %} ↑{% elif sort == "-po_number" %} ↓{% endif %}</th>
+        <th class="col-pallet sortable" data-sort="pallet_number">palletNumber{% if sort == "pallet_number" %} ↑{% elif sort == "-pallet_number" %} ↓{% endif %}</th>
+        <th class="col-carton sortable" data-sort="carton_number">cartonNumber{% if sort == "carton_number" %} ↑{% elif sort == "-carton_number" %} ↓{% endif %}</th>
+        <th class="col-pcb sortable" data-sort="pcb_label">pcb_label{% if sort == "pcb_label" %} ↑{% elif sort == "-pcb_label" %} ↓{% endif %}</th>
+        <th class="col-chip sortable" data-sort="chip_id">chip_id{% if sort == "chip_id" %} ↑{% elif sort == "-chip_id" %} ↓{% endif %}</th>
+        <th class="col-serial sortable" data-sort="serial_number">serial_number{% if sort == "serial_number" %} ↑{% elif sort == "-serial_number" %} ↓{% endif %}</th>
+        <th class="col-stb sortable" data-sort="stb_mac">STB_Mac{% if sort == "stb_mac" %} ↑{% elif sort == "-stb_mac" %} ↓{% endif %}</th>
+        <th class="col-bt sortable" data-sort="bt_mac">BT_Mac{% if sort == "bt_mac" %} ↑{% elif sort == "-bt_mac" %} ↓{% endif %}</th>
+        <th class="col-wifi sortable" data-sort="wifi_ap_5g">Wifi_AP_5G{% if sort == "wifi_ap_5g" %} ↑{% elif sort == "-wifi_ap_5g" %} ↓{% endif %}</th>
+        <th class="col-wifi sortable" data-sort="wifi_ap_2g">Wifi_AP_2G{% if sort == "wifi_ap_2g" %} ↑{% elif sort == "-wifi_ap_2g" %} ↓{% endif %}</th>
+        <th class="col-wifi sortable" data-sort="wifi_client_5g">Wifi_Client_5G{% if sort == "wifi_client_5g" %} ↑{% elif sort == "-wifi_client_5g" %} ↓{% endif %}</th>
+        <th class="col-wifi sortable" data-sort="wifi_client_2g">Wifi_Client_2G{% if sort == "wifi_client_2g" %} ↑{% elif sort == "-wifi_client_2g" %} ↓{% endif %}</th>
+        <th class="col-date sortable" data-sort="produce_dt">produce_dt{% if sort == "produce_dt" %} ↑{% elif sort == "-produce_dt" %} ↓{% endif %}</th>
         {% for col in columns %}
         {% if not col.is_core %}
-        <th class="col-{{ col.id }} draggable-col" draggable="true" data-col-id="{{ col.id }}">{{ col.label }}</th>
+        <th class="col-{{ col.id }} draggable-col sortable" draggable="true" data-col-id="{{ col.id }}" data-sort="x_{{ col.name }}">{{ col.label }}{% with k="x_"|add:col.name %}{% if sort == k %} ↑{% elif sort == "-"|add:k %} ↓{% endif %}{% endwith %}</th>
         {% endif %}
         {% endfor %}
         <th class="col-actions">Actions</th>

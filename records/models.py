@@ -58,6 +58,10 @@ class ProductionRecord(models.Model):
     # --- Dynamic extra fields stored as JSON ---
     extra_data = models.JSONField(default=dict, blank=True)
 
+    # Which import created this record (null for records entered by hand or imported before tracking existed)
+    import_log = models.ForeignKey('ImportLog', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='records')
+
     # --- Metadata ---
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_records')
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='updated_records')

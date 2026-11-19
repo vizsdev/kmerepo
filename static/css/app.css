@@ -129,6 +129,19 @@ code { font-family: var(--mono); font-size: 12px; }
 .dropdown-menu { position: absolute; top: calc(100% + 4px); right: 0; background: var(--c); border: 1px solid var(--b); border-radius: 8px; min-width: 180px; z-index: 100; display: none; box-shadow: 0 8px 24px rgba(15,23,42,.14); overflow: hidden; padding: 4px; }
 .dropdown-menu.show { display: block; }
 .dropdown-item { display: block; padding: 8px 12px; border-radius: 6px; color: var(--t); font-size: 14px; font-weight: 400; }
+.dropdown-menu.up { top: auto; bottom: calc(100% + 4px); }
+.dropdown-menu.left { right: auto; left: 0; }
+.dropdown-header { padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--m); }
+button.dropdown-item { width: 100%; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; font-size: 14px; }
+.modal { position: fixed; inset: 0; margin: auto; height: fit-content; max-height: calc(100vh - 32px); overflow-y: auto; border: 1px solid var(--b); border-radius: var(--r); background: var(--c); color: var(--t); padding: 22px 24px; width: min(480px, calc(100vw - 32px)); box-shadow: 0 20px 48px rgba(15,23,42,.25); }
+.modal::backdrop { background: rgba(15,23,42,.45); }
+.modal-title { font-size: 18px; font-weight: 700; margin: 0 0 14px; }
+.modal-group { border: 0; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.modal-group .form-select { width: 100%; }
+.modal-hint { margin: 0; line-height: 1.45; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.export-links { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.export-links .label { font-size: 12px; color: var(--m); margin-right: 2px; }
 .dropdown-item:hover { background: var(--os); text-decoration: none; }
 
 /* ─── STATS (KPI cards) ─── */

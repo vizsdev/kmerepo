@@ -3,28 +3,116 @@
 {% block page_title %}Import Logs{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'import_records' %}" class="btn btn-primary">↑ New Import</a>
+<div class="action-group">
+  <button type="button" class="btn btn-outline" onclick="openLogExport()">↓ Export Logs</button>
+  <a href="{% url 'import_records' %}" class="btn btn-primary">↑ New Import</a>
+</div>
 {% endblock %}
 
 {% block content %}
+<form method="get" class="filter-bar" id="logFilterForm">
+  <div class="search-wrap">
+    <span class="search-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></span>
+    <input type="text" name="search" value="{{ search }}" class="search-input" placeholder="Search file name...">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">Status</label>
+    <select name="status" class="form-select small" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for val, lab in status_choices %}<option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ lab }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">Imported by</label>
+    <select name="user" class="form-select small" onchange="this.form.submit()">
+      <option value="">Anyone</option>
+      {% for u in importers %}<option value="{{ u }}" {% if user_filter == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}" class="form-input small">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}" class="form-input small">
+  </div>
+  <div class="filter-group">
+    <label class="form-label small">Sort</label>
+    <select name="sort" class="form-select small" onchange="this.form.submit()">
+      <option value="-imported_at" {% if sort == '-imported_at' %}selected{% endif %}>Newest first</option>
+      <option value="imported_at" {% if sort == 'imported_at' %}selected{% endif %}>Oldest first</option>
+      <option value="file_name" {% if sort == 'file_name' %}selected{% endif %}>File A→Z</option>
+      <option value="-file_name" {% if sort == '-file_name' %}selected{% endif %}>File Z→A</option>
+      <option value="-total_rows" {% if sort == '-total_rows' %}selected{% endif %}>Most rows</option>
+      <option value="-error_rows" {% if sort == '-error_rows' %}selected{% endif %}>Most errors</option>
+      <option value="-skipped_rows" {% if sort == '-skipped_rows' %}selected{% endif %}>Most duplicates</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  {% if filtered %}<a href="{% url 'import_logs' %}" class="btn btn-ghost">✕ Clear</a>{% endif %}
+</form>
+{% if filtered %}<p class="text-muted" style="margin:0 0 10px;">Showing {{ page_obj.paginator.count }} of {{ total_logs }} imports</p>{% endif %}
+
+<!-- Export dialog -->
+<dialog class="modal" id="logExportDialog" aria-labelledby="logExportTitle">
+  <form method="post" action="{% url 'export_import_logs' %}?{{ query_string }}" id="logExportForm">
+    {% csrf_token %}
+    <h2 class="modal-title" id="logExportTitle">Export import logs</h2>
+
+    <fieldset class="modal-group">
+      <legend class="form-label">Which imports</legend>
+      <label class="checkbox-label"><input type="radio" name="scope" value="all" checked>
+        <span>{% if filtered %}All imports matching the current filters{% else %}All imports{% endif %} ({{ page_obj.paginator.count }})</span></label>
+      <label class="checkbox-label" id="scopeSelectedLabel"><input type="radio" name="scope" value="selected" id="scopeSelected">
+        <span>Only the selected imports (<span id="selCount">0</span>)</span></label>
+    </fieldset>
+
+    <fieldset class="modal-group">
+      <legend class="form-label">Contents</legend>
+      <label class="checkbox-label"><input type="checkbox" name="include_data" value="1" checked>
+        <span>Include the imported data (the records each import created)</span></label>
+      <p class="text-muted modal-hint">Lets other users download exactly what was imported. CSV comes as a .zip with one file per import, Excel as one sheet per import. Imports made before record tracking was added only include their summary.</p>
+    </fieldset>
+
+    <fieldset class="modal-group">
+      <legend class="form-label">Format</legend>
+      <select name="format" class="form-select">
+        <option value="xlsx">Excel (.xlsx)</option>
+        <option value="csv">CSV</option>
+        <option value="json">JSON</option>
+      </select>
+    </fieldset>
+
+    <div id="logExportIds"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('logExportDialog').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">↓ Download</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="table-wrap">
   <table class="data-table">
     <thead>
       <tr>
-        <th>File</th>
-        <th>Status</th>
-        <th>Total</th>
-        <th>Success</th>
-        <th>Errors</th>
-        <th>Duplicates skipped</th>
-        <th>Imported By</th>
-        <th>Date</th>
+        <th class="col-check"><input type="checkbox" id="selectAllLogs" class="form-checkbox" aria-label="Select all imports on this page"></th>
+        <th class="sortable" data-sort="file_name">File{% if sort == "file_name" %} ↑{% elif sort == "-file_name" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="status">Status{% if sort == "status" %} ↑{% elif sort == "-status" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="total_rows">Total{% if sort == "total_rows" %} ↑{% elif sort == "-total_rows" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="success_rows">Success{% if sort == "success_rows" %} ↑{% elif sort == "-success_rows" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="error_rows">Errors{% if sort == "error_rows" %} ↑{% elif sort == "-error_rows" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="skipped_rows">Duplicates skipped{% if sort == "skipped_rows" %} ↑{% elif sort == "-skipped_rows" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="imported_by__username">Imported By{% if sort == "imported_by__username" %} ↑{% elif sort == "-imported_by__username" %} ↓{% endif %}</th>
+        <th class="sortable" data-sort="imported_at">Date{% if sort == "imported_at" %} ↑{% elif sort == "-imported_at" %} ↓{% endif %}</th>
         <th>Details</th>
+        <th>Export</th>
       </tr>
     </thead>
     <tbody>
       {% for log in logs %}
       <tr class="data-row">
+        <td class="col-check"><input type="checkbox" class="log-check form-checkbox" value="{{ log.pk }}" aria-label="Select {{ log.file_name }}"></td>
         <td class="mono wrap">{{ log.file_name }}</td>
         <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
         <td class="mono">{{ log.total_rows }}</td>
@@ -42,10 +130,27 @@
           <span class="text-muted">—</span>
           {% endif %}
         </td>
+        <td>
+          <div class="export-links">
+            {% if log.tracked_records %}
+            <span class="label">Records</span>
+            <a href="{% url 'export_import_log_records' log.pk %}?format=csv" class="btn btn-ghost tiny">CSV</a>
+            <a href="{% url 'export_import_log_records' log.pk %}?format=xlsx" class="btn btn-ghost tiny">XLSX</a>
+            {% endif %}
+            {% if log.errors or log.skipped %}
+            <span class="label">Report</span>
+            <a href="{% url 'export_import_log_report' log.pk %}?format=csv" class="btn btn-ghost tiny">CSV</a>
+            <a href="{% url 'export_import_log_report' log.pk %}?format=xlsx" class="btn btn-ghost tiny">XLSX</a>
+            {% endif %}
+            {% if not log.tracked_records and not log.errors and not log.skipped %}
+            <span class="text-muted" title="Imports made before record tracking was added can't list their records">—</span>
+            {% endif %}
+          </div>
+        </td>
       </tr>
       {% if log.errors or log.skipped %}
       <tr id="err-{{ log.pk }}" style="display:none;">
-        <td colspan="9" class="detail-cell" style="padding:0 12px 12px;">
+        <td colspan="11" class="detail-cell" style="padding:0 12px 12px;">
           <ul class="error-list">
             {% for err in log.errors %}
             <li>{{ err }}</li>
@@ -60,11 +165,12 @@
       {% endif %}
       {% empty %}
       <tr>
-        <td colspan="9" class="empty-state">
+        <td colspan="11" class="empty-state">
           <div class="empty-inner">
             <div class="empty-icon">◆</div>
-            <div class="empty-title">No imports yet</div>
-            <div class="empty-sub"><a href="{% url 'import_records' %}">Import your first file</a></div>
+            {% if filtered %}<div class="empty-title">No imports match these filters</div>
+            <div class="empty-sub"><a href="{% url 'import_logs' %}">Clear filters</a></div>{% else %}<div class="empty-title">No imports yet</div>
+            <div class="empty-sub"><a href="{% url 'import_records' %}">Import your first file</a></div>{% endif %}
           </div>
         </td>
       </tr>
@@ -75,15 +181,62 @@
 
 {% if page_obj.has_other_pages %}
 <div class="pagination">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="page-btn">← Prev</a>{% endif %}
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&{{ query_string }}" class="page-btn">← Prev</a>{% endif %}
   <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="page-btn">Next →</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&{{ query_string }}" class="page-btn">Next →</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Selection is kept across pages (sessionStorage) so you can tick imports on several pages.
+const SEL_KEY = 'pt_log_selection';
+function loadSel() { try { return new Set(JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]')); } catch (e) { return new Set(); } }
+function saveSel(sel) { try { sessionStorage.setItem(SEL_KEY, JSON.stringify([...sel])); } catch (e) {} }
+const selectedLogs = loadSel();
+
+function syncChecks() {
+  const boxes = document.querySelectorAll('.log-check');
+  boxes.forEach(cb => cb.checked = selectedLogs.has(cb.value));
+  const all = document.getElementById('selectAllLogs');
+  if (all) all.checked = boxes.length > 0 && [...boxes].every(cb => cb.checked);
+}
+
+document.addEventListener('change', function (e) {
+  if (e.target.classList.contains('log-check')) {
+    e.target.checked ? selectedLogs.add(e.target.value) : selectedLogs.delete(e.target.value);
+  } else if (e.target.id === 'selectAllLogs') {
+    document.querySelectorAll('.log-check').forEach(cb => {
+      e.target.checked ? selectedLogs.add(cb.value) : selectedLogs.delete(cb.value);
+    });
+  } else return;
+  saveSel(selectedLogs);
+  syncChecks();
+});
+syncChecks();
+
+function openLogExport() {
+  const n = selectedLogs.size;
+  document.getElementById('selCount').textContent = n;
+  const sel = document.getElementById('scopeSelected');
+  sel.disabled = n === 0;
+  document.getElementById('scopeSelectedLabel').style.opacity = n === 0 ? .5 : 1;
+  document.querySelector('input[name=scope][value=' + (n ? 'selected' : 'all') + ']').checked = true;
+  document.getElementById('logExportDialog').showModal();
+}
+
+document.getElementById('logExportForm').addEventListener('submit', function () {
+  const box = document.getElementById('logExportIds');
+  box.innerHTML = '';
+  selectedLogs.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = id;
+    box.appendChild(inp);
+  });
+  setTimeout(() => document.getElementById('logExportDialog').close(), 100);
+});
+
 function toggleErrors(id) {
   const row = document.getElementById(id);
   row.style.display = row.style.display === 'none' ? 'table-row' : 'none';

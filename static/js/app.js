@@ -121,26 +121,40 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ─── Sortable table header clicks ───
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('th.sortable').forEach(th => {
-    th.addEventListener('click', function () {
-      const sortKey = th.dataset.sort;
-      const url = new URL(window.location);
-      const current = url.searchParams.get('sort');
-      if (current === sortKey) {
-        url.searchParams.set('sort', '-' + sortKey);
-      } else if (current === '-' + sortKey) {
-        url.searchParams.set('sort', sortKey);
-      } else {
-        url.searchParams.set('sort', sortKey);
-      }
-      window.location = url;
-    });
-  });
+// Delegated so it keeps working after HTMX swaps the table. Click once for ascending, again for descending.
+// Submits the page's filter form (if it has a sort field) so search/date filters are kept.
+document.addEventListener('click', function (e) {
+  const th = e.target.closest('th.sortable');
+  if (!th || e.target.closest('input, button, a')) return;
+  const key = th.dataset.sort;
+  const select = document.querySelector('form select[name=sort]');
+  const current = select ? select.value : new URL(window.location).searchParams.get('sort');
+  const next = current === key ? '-' + key : key;
+  if (select) {
+    if (![...select.options].some(o => o.value === next)) select.add(new Option(next, next));
+    select.value = next;
+    const form = select.form;
+    const page = form.querySelector('input[name=page]');
+    if (page) page.remove();
+    form.submit();
+    return;
+  }
+  const url = new URL(window.location);
+  url.searchParams.set('sort', next);
+  url.searchParams.delete('page');
+  window.location = url;
 });
 
-// ─── Export dropdown close on outside click ───
+// ─── Dropdowns: toggle on button click, close on outside click ───
 document.addEventListener('click', function (e) {
+  const toggle = e.target.closest('.dropdown-toggle');
+  if (toggle) {
+    e.preventDefault();
+    const menu = toggle.parentElement.querySelector('.dropdown-menu');
+    document.querySelectorAll('.dropdown-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+    if (menu) menu.classList.toggle('show');
+    return;
+  }
   if (!e.target.closest('.dropdown')) {
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
   }

@@ -21,6 +21,9 @@ urlpatterns = [
     path('import/', views.ImportView.as_view(), name='import_records'),
     path('export/', views.export_records, name='export_records'),
     path('import/logs/', views.ImportLogListView.as_view(), name='import_logs'),
+    path('import/logs/export/', views.export_import_log_list, name='export_import_logs'),
+    path('import/logs/<int:pk>/records/', views.export_import_log_records, name='export_import_log_records'),
+    path('import/logs/<int:pk>/report/', views.export_import_log_report, name='export_import_log_report'),
 
     # HTMX partials
     path('records/table/', views.RecordTablePartial.as_view(), name='record_table_partial'),

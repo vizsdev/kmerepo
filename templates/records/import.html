@@ -9,6 +9,7 @@
       <span class="info-icon">ℹ</span>
       <div>
       File must include headers: <code>PO_Number</code>, <code>palletNumber</code>, <code>cartonNumber</code>, <code>pcb_label</code>, <code>chip_id</code>, <code>serial_number</code>, <code>STB_Mac</code>, <code>BT_Mac</code>, <code>Wifi_AP_5G</code>, <code>Wifi_AP_2G</code>, <code>Wifi_Client_5G</code>, <code>Wifi_Client_2G</code>, <code>produce_dt</code>, plus any custom columns.
+      <strong>Every column must be filled in</strong>: rows with a blank cell are rejected (skipped if "skip rows with errors" is ticked, otherwise the whole import is cancelled).
       Records whose serial_number already exists (or repeats within the file) are skipped, never overwritten. Max file size 4.5 MB.
       </div>
     </div>
@@ -40,8 +41,8 @@
         <div class="form-section-title">Download Template</div>
         <p class="text-muted-body">Download a blank template file to see the required column structure.</p>
         <div class="action-group">
-          <a href="{% url 'export_records' %}?format=csv" class="btn btn-outline">CSV Template</a>
-          <a href="{% url 'export_records' %}?format=xlsx" class="btn btn-outline">Excel Template</a>
+          <a href="{% url 'export_records' %}?format=csv&template=1" class="btn btn-outline">CSV Template</a>
+          <a href="{% url 'export_records' %}?format=xlsx&template=1" class="btn btn-outline">Excel Template</a>
         </div>
       </div>
 
